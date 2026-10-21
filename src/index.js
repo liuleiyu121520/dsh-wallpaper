@@ -25,7 +25,7 @@ const CHANGED_THRESHOLD = 1.5;
 /** Package directory, for reading the installed manifest at runtime. */
 const PACKAGE_DIR = dirname(fileURLToPath(import.meta.url));
 /** Where a newer release is published; empty disables remote checking. */
-const UPDATE_ENDPOINT = 'https://api.github.com/repos/leiyu/dsh-wallpaper/releases/latest';
+const UPDATE_ENDPOINT = 'https://api.github.com/repos/liuleiyu121520/dsh-wallpaper/releases/latest';
 
 /** Installed version, read from this package's own manifest. */
 function installedVersion() {

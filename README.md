@@ -37,13 +37,13 @@
 ### 从 GitHub 安装
 
 ```bash
-dsh plugin --profile <你的 profile> add github:<owner>/dsh-wallpaper
+dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper
 ```
 
 建议固定到某个提交，避免上游变更影响本地：
 
 ```bash
-dsh plugin --profile <你的 profile> add github:<owner>/dsh-wallpaper#<commit-sha>
+dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper#<commit-sha>
 ```
 
 ### 从 DSH Hub 安装
