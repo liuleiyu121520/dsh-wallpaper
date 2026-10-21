@@ -14,7 +14,12 @@
   "update.checking": "Checking…",
   "update.release": "View release",
   "update.checkedAt": "Last checked",
-  "update.reminderTitle": "Wallpaper update available: {version}",
-  "update.reminderBody": "Installed {current} → latest {version}",
-  "update.dismiss": "Do not remind me"
+  "update.reminderTitle": "Plugin update available",
+  "update.reminderBody": "Version {version} is out (installed {current}). Upgrade from the settings page.",
+  "update.upgrading": "Upgrading…",
+  "update.upgraded": "Upgraded to {version}. No restart needed.",
+  "update.upgradeNeedsRestart": "New version installed. Restart the harness to finish.",
+  "update.upgradeFailed": "Upgrade failed: {reason}",
+  "update.upgradeHint": "Install the latest version directly, no command needed",
+  "update.close": "Close"
 }

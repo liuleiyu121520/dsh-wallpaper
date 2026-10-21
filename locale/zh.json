@@ -14,7 +14,12 @@
   "update.checking": "检查中…",
   "update.release": "查看发布页",
   "update.checkedAt": "上次检查",
-  "update.reminderTitle": "实时壁纸有新版本 {version}",
-  "update.reminderBody": "当前 {current} → 最新 {version}",
-  "update.dismiss": "不再提示"
+  "update.reminderTitle": "插件可升级",
+  "update.reminderBody": "发现新版本 {version}（当前 {current}），可到设置页升级。",
+  "update.upgrading": "正在升级…",
+  "update.upgraded": "已升级到 {version}，无需重启",
+  "update.upgradeNeedsRestart": "已安装新版本，重启 Harness 后生效",
+  "update.upgradeFailed": "升级失败：{reason}",
+  "update.upgradeHint": "直接安装最新版本，无需手动执行命令",
+  "update.close": "关闭"
 }
