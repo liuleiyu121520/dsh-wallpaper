@@ -13,5 +13,8 @@
   "update.check": "Check for updates",
   "update.checking": "Checking…",
   "update.release": "View release",
-  "update.checkedAt": "Last checked"
+  "update.checkedAt": "Last checked",
+  "update.reminderTitle": "Wallpaper update available: {version}",
+  "update.reminderBody": "Installed {current} → latest {version}",
+  "update.dismiss": "Do not remind me"
 }

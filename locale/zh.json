@@ -13,5 +13,8 @@
   "update.check": "检查更新",
   "update.checking": "检查中…",
   "update.release": "查看发布页",
-  "update.checkedAt": "上次检查"
+  "update.checkedAt": "上次检查",
+  "update.reminderTitle": "实时壁纸有新版本 {version}",
+  "update.reminderBody": "当前 {current} → 最新 {version}",
+  "update.dismiss": "不再提示"
 }
