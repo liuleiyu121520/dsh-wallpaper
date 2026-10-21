@@ -51,7 +51,7 @@ dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper
 建议固定到某个提交，避免上游变更影响本地：
 
 ```bash
-dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper#0ab52ce
+dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper#4fbb239
 ```
 
 ### 从 DSH Hub 安装
