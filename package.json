@@ -1,0 +1,50 @@
+{
+  "name": "dsh-wallpaper",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "把当前桌面壁纸作为 DeepSeek Harness 界面的实时背景（支持 macOS / Windows / Linux）",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "wallpaper",
+    "background"
+  ],
+  "license": "MIT",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib/",
+    "locale/",
+    "docs/",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leiyu/dsh-wallpaper.git"
+  },
+  "homepage": "https://github.com/leiyu/dsh-wallpaper",
+  "bugs": {
+    "url": "https://github.com/leiyu/dsh-wallpaper/issues"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "meta": {
+    "title": "Live Wallpaper Background",
+    "description": "Shows the current desktop wallpaper as a translucent live background behind the chat UI. Works on macOS, Windows and Linux, refreshing every few seconds."
+  },
+  "nav": "Live Wallpaper",
+  "reset": "Reset to defaults",
+  "update.title": "Plugin update",
+  "update.current": "Installed",
+  "update.latest": "Latest",
+  "update.unknown": "Not checked",
+  "update.available": "A newer version is available",
+  "update.check": "Check for updates",
+  "update.checking": "Checking…",
+  "update.release": "View release",
+  "update.checkedAt": "Last checked"
+}

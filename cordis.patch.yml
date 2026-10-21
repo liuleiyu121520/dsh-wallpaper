@@ -1,0 +1,10 @@
+- insert:
+    - id: dsh-wallpaper
+      name: 'dsh-wallpaper'
+      config:
+        intervalMs: 6000
+        opacity: 1
+        blurPx: 0
+        scrim: 0.35
+        saturate: 1
+        surface: 0.5
