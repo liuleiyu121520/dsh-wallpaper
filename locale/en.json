@@ -21,5 +21,6 @@
   "update.upgradeNeedsRestart": "New version installed. Restart the harness to finish.",
   "update.upgradeFailed": "Upgrade failed: {reason}",
   "update.upgradeHint": "Install the latest version directly, no command needed",
-  "update.close": "Close"
+  "update.close": "Close",
+  "update.alreadyLatest": "Already on the latest version {version}"
 }

@@ -1,6 +1,6 @@
 {
   "name": "dsh-wallpaper",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "type": "module",
   "description": "把当前桌面壁纸作为 DeepSeek Harness 界面的实时背景（支持 macOS / Windows / Linux）",
   "keywords": [

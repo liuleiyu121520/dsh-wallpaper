@@ -21,5 +21,6 @@
   "update.upgradeNeedsRestart": "已安装新版本，重启 Harness 后生效",
   "update.upgradeFailed": "升级失败：{reason}",
   "update.upgradeHint": "直接安装最新版本，无需手动执行命令",
-  "update.close": "关闭"
+  "update.close": "关闭",
+  "update.alreadyLatest": "已是最新版本 {version}"
 }
