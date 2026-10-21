@@ -13,6 +13,7 @@
 - **可调节外观**：模糊、强度、面板不透明度、压暗、饱和度五个参数，实时生效
 - **深色/浅色主题自适应**：两种主题使用不同的默认压暗值，切换主题立即跟随
 - **弹窗不受影响**：设置、对话框等浮层保持不透明，不会因为背景变透明而看不清文字
+- **新版本提醒**：后台每 6 小时检查一次 GitHub Release，有新版时左下角弹出提醒卡片，设置页导航项带标记；点「不再提示」后该版本不再打扰，下个版本仍会提醒
 
 ## 界面
 
@@ -23,6 +24,10 @@
 「设置 → 实时壁纸外观」：五个滑块实时调节，并可一键恢复默认、检查更新。
 
 ![外观设置](docs/screenshot-settings.jpg)
+
+有新版时的提醒卡片（左下角，不遮挡输入框与右下角的其它通知）：
+
+![新版本提醒](docs/screenshot-update.jpg)
 
 ## 平台支持
 
@@ -134,10 +139,26 @@ dsh plugin --profile <你的 profile> add /absolute/path/to/dsh-wallpaper
 ```
 
 - `src/index.js` — Host 半区：HTTP 路由、抓帧循环、版本检查
-- `src/client.js` — 浏览器半区：背景图层、设置页
+- `src/client.js` — 浏览器半区：背景图层、设置页、更新提醒卡片
 - `src/capture.js` — 平台后端选择器
-- `src/backends/*.js` — 各平台壁纸读取实现
+- `src/backends/*.js` — 各平台壁纸实现
 - `lib/` — 发布产物（由 `scripts/build.mjs` 从 `src/` 生成，请勿直接修改）
+
+### 发版流程
+
+版本检查读的是 **GitHub Release 的 tag**，只推 tag 不发 Release 不会触发提醒。发版三步：
+
+```bash
+# 1. 改 package.json 的 version，重新构建
+node scripts/build.mjs
+
+# 2. 提交推送
+git commit -am "chore: release vX.Y.Z" && git push
+
+# 3. 在 GitHub 上基于该提交创建 Release，tag 用 vX.Y.Z
+```
+
+`tag_name` 去掉前导 `v` 后必须大于 `package.json` 的 `version`，否则判定为「已是最新」。
 
 ## 已知限制
 
