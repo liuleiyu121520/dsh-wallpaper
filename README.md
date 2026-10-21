@@ -48,10 +48,10 @@
 dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper
 ```
 
-建议固定到某个提交，避免上游变更影响本地：
+建议固定到某个提交，避免上游变更影响本地（把 `<commit>` 换成本仓库 `main` 上的任意提交 ID）：
 
 ```bash
-dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper#4fbb239
+dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper#<commit>
 ```
 
 ### 从 DSH Hub 安装
