@@ -34,7 +34,7 @@
 
 | 平台 | 读取方式 | 状态 |
 |---|---|---|
-| **macOS** | 截取 Dock 的壁纸窗口（`screencapture`），因此动态航拍壁纸也能拿到当前帧 | 已验证 |
+| **macOS** | 截取系统的壁纸窗口（`screencapture`），因此动态航拍壁纸也能拿到当前帧。窗口归属按版本兼容：macOS ≤ 26 由 Dock 绘制，macOS 27+ 由 WindowManager 绘制 | 已验证（macOS 27.0.1） |
 | **Windows** | 读取注册表 `HKCU\Control Panel\Desktop\Wallpaper`，幻灯片轮换时跟随当前图片；读取失败时用 .NET 采样桌面 | 已实现，待实机验证 |
 | **Linux** | 依次尝试 GNOME `gsettings`、XFCE `xfconf`；需要 ImageMagick 转码 | 已实现，待实机验证 |
 
