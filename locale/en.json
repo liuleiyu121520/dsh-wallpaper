@@ -16,7 +16,7 @@
   "update.release": "View release",
   "update.checkedAt": "Last checked",
   "update.reminderTitle": "Plugin update available",
-  "update.reminderBody": "Version {version} is out (installed {current}). Upgrade from the settings page.",
+  "update.reminderBody": "Version {version} is out (installed {current}). Open \"Scenery\" in the account menu to upgrade.",
   "update.upgrading": "Upgrading…",
   "update.upgraded": "Upgraded to {version}. No restart needed.",
   "update.upgradeNeedsRestart": "New version installed. Restart the harness to finish.",

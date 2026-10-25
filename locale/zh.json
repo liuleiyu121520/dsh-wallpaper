@@ -16,7 +16,7 @@
   "update.release": "查看发布页",
   "update.checkedAt": "上次检查",
   "update.reminderTitle": "插件可升级",
-  "update.reminderBody": "发现新版本 {version}（当前 {current}），可到设置页升级。",
+  "update.reminderBody": "发现新版本 {version}（当前 {current}），在账号菜单点「换景」即可升级。",
   "update.upgrading": "正在升级…",
   "update.upgraded": "已升级到 {version}，无需重启",
   "update.upgradeNeedsRestart": "已安装新版本，重启 Harness 后生效",
