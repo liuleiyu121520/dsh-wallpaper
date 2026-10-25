@@ -95,29 +95,55 @@
 
 ## 安装
 
-### 从 GitHub 安装
+Harness 自带插件安装界面，**填个地址就能装，不用敲命令**。
+
+### 方式一：插件页直接添加（推荐）
+
+1. 左侧导航点 **插件**
+2. 右上角点 **添加插件**
+3. 输入框粘贴本仓库地址：
+
+   ```
+   https://github.com/liuleiyu121520/dsh-wallpaper
+   ```
+
+4. 点 **安装**，完成后在账号菜单点「换景」即可使用
+
+![添加插件](docs/screenshot-install.jpg)
+
+输入框同时接受 GitHub 仓库地址、npm 包名和本地目录路径。**本插件请用仓库地址**：
+
+| 写法 | 示例 |
+|---|---|
+| **GitHub 仓库地址**（本插件） | `https://github.com/liuleiyu121520/dsh-wallpaper` |
+| **本地目录**（开发用） | `/absolute/path/to/dsh-wallpaper` |
+
+> 输入 npm 名 `dsh-wallpaper` 会装到**别人的同名包**（Wallpaper Engine 集成），不是本插件。本插件只通过 GitHub 仓库分发，没有发布 npm 包。
+
+### 方式二：从 DSH Hub 安装
+
+在 [DSH Hub 插件页](https://dsh-hub.cc/plugins/liuleiyu121520/dsh-wallpaper) 点安装，按页面给出的命令执行。
+
+### 方式三：命令行
+
+适合脚本化或 CI：
 
 ```bash
 dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper
 ```
 
-建议固定到某个提交，避免上游变更影响本地（把 `<commit>` 换成本仓库 `main` 上的任意提交 ID）：
+需要固定版本时加 `#` 后缀，避免上游变更影响本地：
 
 ```bash
+# 固定到某个提交
 dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper#<commit>
+# 固定到某个 release
+dsh plugin --profile <你的 profile> add github:liuleiyu121520/dsh-wallpaper#v0.4.2
 ```
 
-### 从 DSH Hub 安装
+### 装好之后
 
-在 DSH Hub 的插件页点击安装，或在 Harness 的「设置 → 插件」中搜索 `dsh-wallpaper`。
-
-### 从本地目录安装（开发用）
-
-```bash
-dsh plugin --profile <你的 profile> add /absolute/path/to/dsh-wallpaper
-```
-
-安装后重启 Harness，在账号菜单点「换景」调整参数。
+在账号菜单点「换景」调整参数。插件自身有更新时，右下角会提示，在「换景」弹窗头部点一下即可原地升级，不用重装。
 
 ## 配置
 

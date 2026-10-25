@@ -5012,7 +5012,7 @@ void main() {
           { style: { color: 'var(--dsw-alias-label-secondary, inherit)' } },
           label(
             'update.reminderBody',
-            `发现新版本 ${version}（当前 ${current}），可到设置页升级。`,
+            `发现新版本 ${version}（当前 ${current}），在账号菜单点「换景」即可升级。`,
             { current, version },
           ),
         ),
