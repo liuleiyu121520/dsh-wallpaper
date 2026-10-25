@@ -1,0 +1,108 @@
+%% dsh-wallpaper 天气壁纸模式 — 类图（提取自 docs/weather-mode-design.md §3.9）
+
+classDiagram
+    class WeatherPayload {
+      +string kind
+      +number temperature
+      +string city
+      +boolean isDay
+      +string updatedAt
+      +string error
+      +boolean geoFallback
+    }
+    class WeatherService {
+      -WeatherPayload sample
+      -object geo
+      -boolean fetching
+      +payload() WeatherPayload
+      +refresh() Promise~WeatherPayload~
+    }
+    class normalizeWeatherKind {
+      <<function>>
+      +normalizeWeatherKind(sample) string
+    }
+    class DiscoverPayload {
+      +string frame
+      +string rev
+      +number refreshMs
+      +string mode
+      +WeatherPayload weather
+      +number opacity
+      +number blurPx
+      +number scrim
+      +number saturate
+      +number surface
+    }
+    class ModeStore {
+      -string mode
+      +get() string
+      +setMode(next) void
+      +subscribe(listener) function
+    }
+    class WeatherStore {
+      -WeatherPayload weather
+      +get() WeatherPayload
+      +publish(weather) void
+      +subscribe(listener) function
+    }
+    class KindPreset {
+      +string shape
+      +string motion
+      +number count
+      +number speed
+      +number[] size
+      +string[] tint
+      +object backdrop
+      +object fx
+    }
+    class Particle {
+      +number x
+      +number y
+      +number vx
+      +number vy
+      +number size
+      +number alpha
+      +number phase
+      +boolean dying
+    }
+    class WeatherEngine {
+      -string state
+      -Particle[] particles
+      -KindPreset preset
+      -object env
+      +setWeather(kind, env) void
+      +setEnv(env) void
+      +resize(width, height) void
+      +stop() void
+      +dispose() void
+    }
+    class BackgroundLayer {
+      -string state
+      -WeatherEngine engine
+      +applyLook() void
+      +renderMode(mode) void
+    }
+    class WeatherOverlay {
+      -boolean dismissed
+      +render() element
+    }
+    class ModeCard {
+      +string mode
+      +boolean selected
+      +select() void
+    }
+    class WallpaperSettingsPage {
+      +render() element
+    }
+    WeatherService ..> normalizeWeatherKind
+    WeatherService --> WeatherPayload
+    DiscoverPayload *-- WeatherPayload
+    BackgroundLayer *-- WeatherEngine
+    BackgroundLayer --> ModeStore
+    BackgroundLayer --> WeatherStore
+    WeatherEngine *-- Particle
+    WeatherEngine --> KindPreset
+    WeatherOverlay --> WeatherStore
+    WeatherOverlay --> ModeStore
+    WallpaperSettingsPage --> ModeStore
+    WallpaperSettingsPage *-- ModeCard

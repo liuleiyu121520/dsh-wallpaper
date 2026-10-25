@@ -1,0 +1,96 @@
+%% dsh-wallpaper 天气壁纸模式 — 时序图集（提取自 docs/weather-mode-design.md §4）
+
+sequenceDiagram
+    autonumber
+    participant T as ctx.timer
+    participant W as WeatherService（src/weather.js）
+    participant G as 定位服务 ipwho.is / ip-api.com
+    participant F as Open-Meteo Forecast
+    participant A as Open-Meteo AirQuality
+    participant D as discover handler（src/index.js）
+
+    T->>W: refresh()（激活后 15s 首次，此后每 weatherIntervalMs）
+    alt 定位缓存命中
+      W->>W: 复用缓存 lat/lon/city
+    else 首次或上次定位失败
+      W->>G: GET ipwho.is（8s 超时）
+      alt 成功
+        G-->>W: latitude, longitude, city
+      else 失败
+        W->>G: GET ip-api.com/json（8s 超时）
+        G-->>W: lat, lon, city（或再次失败）
+      end
+      alt 两者均失败
+        W->>W: config.weatherLat/Lon → 默认北京；geoFallback=true；不缓存，下周期重试
+      end
+    end
+    Note over W,A: Forecast 与 AirQuality 并行发出，各自独立 8s 超时
+    W->>F: GET /v1/forecast?current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m,precipitation,relative_humidity_2m,is_day&timezone=auto
+    W->>A: GET /v1/air-quality?current=pm2_5,pm10&timezone=auto
+    F-->>W: current{...}（失败返回 null）
+    A-->>W: current{pm2_5,pm10}（失败返回 null → 跳过 haze/dust 判定，WMO 45/48 落 fog）
+    W->>W: normalizeWeatherKind(sample) → kind
+    alt 预报成功
+      W->>W: 写入样本 + updatedAt，error 置 null
+    else 预报失败
+      W->>W: 上次成功 ≤6h → 沿用并置 error='unreachable'；否则回落 kind=cloudy + error
+    end
+    D->>W: payload()
+    W-->>D: weather{kind, temperature, city, isDay, updatedAt, error, geoFallback}
+
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant S as 设置页 ModeCard
+    participant M as ModeStore
+    participant B as 背景层 BackgroundLayer
+    participant H as Host（src/index.js）
+    participant C as capture 定时器
+
+    U->>S: 点击「天气壁纸」卡片（或 Enter/Space）
+    S->>M: setMode('weather')
+    M->>M: localStorage 写入 + 订阅者通知 + 派发 dsh-wallpaper:mode
+    M-->>B: 订阅通知
+    B->>B: state=weather：img 图层 opacity 归零、canvas 显现、引擎启动
+    B->>H: POST /api/dsh-wallpaper/mode {mode:'weather'}
+    H->>H: clientMode='weather'（幂等）
+    H-->>B: 200 {mode:'weather'}
+    Note over C: 定时器回调命中 clientMode==='weather' → capture() 直接返回，跳过截屏
+    B->>H: GET /discover（此后每 2s）
+    H-->>B: frame=null + weather{kind:...}
+    B->>B: kind 变化 → 引擎 transition（800ms）
+
+    U->>S: 点击「跟随系统壁纸」
+    S->>M: setMode('system')
+    M-->>B: 订阅通知
+    B->>B: state=system：canvas 隐藏、引擎 stop()、img 图层恢复
+    B->>H: POST /api/dsh-wallpaper/mode {mode:'system'}
+    H->>H: clientMode='system'
+    H->>C: 立即补抓一帧 capture()
+    H-->>B: 200 {mode:'system'}
+    B->>H: GET /discover
+    H-->>B: frame 恢复 + 新 rev → 加载帧并交叉淡入
+
+sequenceDiagram
+    autonumber
+    participant P as poll（每 2s）
+    participant B as 背景层
+    participant E as WeatherEngine
+    participant O as WeatherOverlay / 设置页
+
+    loop 每 POLL_MS
+      P->>B: GET /discover
+      B->>B: 合并 look；解析 mode 与 weather
+      B->>O: weatherStore.publish(weather)
+      alt mode=weather 且 kind 变化
+        B->>E: setWeather(kind, env)
+        E->>E: state=transition（800ms 交叉淡入淡出）
+        E-->>B: 过渡结束 → state=running
+      else kind 未变
+        B->>E: setEnv(env)（look / 昼夜 / 强度变化）
+      end
+    end
+    loop rAF（仅 state=running / transition）
+      E->>E: step(particles, dt) → draw(ctx)
+      Note right of E: 闪电、涟漪、阵风、摇摆、呼吸按 preset.fx 触发；dt 截断 50ms；hidden 时暂停
+    end

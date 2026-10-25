@@ -8,3 +8,8 @@
         scrim: 0.35
         saturate: 1
         surface: 0.5
+        mode: 'system'
+        weatherIntervalMs: 3600000
+        # 可选：IP 定位失败时使用的固定坐标（默认不启用；不填则依次走 IP 定位 → 默认北京）
+        # weatherLat: 39.9042
+        # weatherLon: 116.4074
