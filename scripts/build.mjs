@@ -38,3 +38,8 @@ const walk = (dir) => {
 };
 walk(to);
 console.log('built lib/ from src/');
+
+// A bundle that parses can still throw on every render (an undeclared local
+// reads as a ReferenceError that React swallows), so the smoke test runs as
+// part of the build rather than as an optional extra.
+await import('./check-client.js');

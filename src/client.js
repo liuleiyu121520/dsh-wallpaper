@@ -4889,9 +4889,21 @@ void main() {
     const UPDATE_TOAST_MS = 14000;
 
     function WallpaperUpdateOverlay({ t }) {
+      // The notice needs the shared snapshot: 0.4.0 dropped this subscription
+      // while rewriting the component and kept reading `status`, so the whole
+      // toast threw on every render and never appeared.
+      const snapshot = React.useSyncExternalStore(
+        updateStore.subscribe,
+        updateStore.get,
+        updateStore.get,
+      );
+      const status = snapshot.status;
       const [dismissedHere, setDismissedHere] = React.useState(null);
       const [visible, setVisible] = React.useState(false);
 
+      React.useEffect(() => {
+        void updateStore.refresh(false);
+      }, []);
 
       const label = (key, fallback, vars) => {
         let text = fallback;
