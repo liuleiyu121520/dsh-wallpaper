@@ -572,7 +572,9 @@ window.__ModuleLoader__.load({
         // 照片准备的压暗，会把整个画面压成和默认深色主题无法区分的近黑色
         // （实测 cloudy 底色 + 0.46 压暗 + 0.37 面板 ≈ RGB(28,30,34)）。
         // 按比例削弱而非禁用：滑块在天气模式仍有效，只是不再吃掉特效。
-        const scrimAlpha = currentMode === 'weather' ? scrimUser * 0.3 : scrimUser;
+        // 浅色主题还要再削一档：它的压暗层是「白纱」，0.18 的白盖在晴空上会把
+        // 蓝天洗成灰蓝，正是「看着像有雾霾遮住」的来源（晴天实测）。
+        const scrimAlpha = currentMode === 'weather' ? scrimUser * (theme.dark ? 0.3 : 0.12) : scrimUser;
         scrim.style.background = mix(theme.base, scrimAlpha);
 
         setTokens('--dsh-wallpaper-surface', mix(theme.base, baseAlpha));
@@ -982,14 +984,19 @@ window.__ModuleLoader__.load({
      */
     const KIND_PRESETS = {
       clear: {
+        // 晴天的粒子是「阳光里的浮尘」：近白的暖色、极小、几乎只在近景闪一下。
+        // 原来的琥珀色大颗光点读起来像萤火虫/霾里的颗粒，是「晴天看着像雾霾」的
+        // 主要来源之一，所以尺寸与不透明度都压到原来的三分之一量级。
         shape: 'dot',
         motion: 'rise',
-        count: 26,
+        count: 34,
         speed: 0.4,
-        size: [1, 2.2],
-        tint: ['#c9a86a', '#8f7a55'],
-        alpha: 0.65,
-        backdrop: { day: ['#3b3524', '#2b2719'], night: ['#1c1a12', '#14120d'] },
+        size: [0.7, 1.6],
+        tint: ['#fff6e2', '#dbe6f5'],
+        alpha: 0.3,
+        backdrop: { day: ['#2f66a8', '#a9c9e2'], night: ['#1c1a12', '#14120d'] },
+        // 显式地面色：晴天从亮蓝天空推出来的「同族深色」是灰蓝，像水面。
+        ground: { day: '#3a3228', night: '#161310' },
         fx: { twinkle: true },
       },
       cloudy: {
@@ -1785,10 +1792,13 @@ window.__ModuleLoader__.load({
         context.fillStyle = sky;
         context.fillRect(0, 0, env.width, hz);
 
+        // 地面色默认由天空底色推出来；晴天给了显式的暖土色——从亮蓝天空推出来的
+        // 「同族深色」是一层灰蓝，看着像水面而不是地面。
+        const floorBase = preset.ground?.[env.isDay ? 'day' : 'night'] ?? stops[1];
         const floor = context.createLinearGradient(0, hz, 0, env.height);
-        floor.addColorStop(0, shade(stops[1], 0.96));
-        floor.addColorStop(0.42, shade(stops[1], 0.78));
-        floor.addColorStop(1, shade(stops[1], 0.6));
+        floor.addColorStop(0, shade(floorBase, 1.02));
+        floor.addColorStop(0.42, shade(floorBase, 0.82));
+        floor.addColorStop(1, shade(floorBase, 0.62));
         context.fillStyle = floor;
         context.fillRect(0, hz, env.width, env.height - hz);
 
@@ -1803,6 +1813,56 @@ window.__ModuleLoader__.load({
 
         context.fillStyle = 'rgba(255, 255, 255, 0.085)';
         context.fillRect(0, hz - 0.5, env.width, 1);
+      };
+
+      /**
+       * 晴天太阳：核心 + 日晕 + 放射光柱，位置跟着 env.solar 走。
+       *
+       * 原来只有一层 0.14 的暖晕，在亮蓝天空上等于不存在——WebGL 不可用时的
+       * 降级路径看起来就是「一片蓝，没有太阳」。光柱用 'lighter' 叠加一圈楔形
+       * 径向渐变，长度与张角按序号错开，避免画成一枚规整的齿轮。
+       */
+      const drawSun = () => {
+        if (kind !== 'clear' || !env.isDay) return;
+        const { width: w, height: h } = env;
+        const sun = env.solar ?? { azimuth: 0.5, elevation: 1 };
+        const sx = w * (0.12 + 0.76 * clamp(sun.azimuth ?? 0.5, 0, 1));
+        const sy = h * (0.42 - 0.34 * clamp(sun.elevation ?? 1, 0, 1));
+        const reach = Math.min(w, h) * 0.55;
+        context.save();
+        context.globalCompositeOperation = 'lighter';
+        for (let index = 0; index < 13; index += 1) {
+          const angle = (index / 13) * Math.PI * 2 + 0.3;
+          const len = reach * (0.5 + 0.5 * Math.abs(Math.sin(index * 2.7)));
+          const spread = 0.022 + 0.016 * Math.abs(Math.cos(index * 1.9));
+          const beam = context.createRadialGradient(sx, sy, 0, sx, sy, len);
+          beam.addColorStop(0, 'rgba(255, 246, 220, 0.18)');
+          beam.addColorStop(0.4, 'rgba(255, 240, 205, 0.06)');
+          beam.addColorStop(1, 'rgba(255, 238, 200, 0)');
+          context.fillStyle = beam;
+          context.beginPath();
+          context.moveTo(sx, sy);
+          context.arc(sx, sy, len, angle - spread, angle + spread);
+          context.closePath();
+          context.fill();
+        }
+        context.restore();
+        const halo = context.createRadialGradient(sx, sy, 0, sx, sy, Math.min(w, h) * 0.62);
+        halo.addColorStop(0, 'rgba(255, 250, 236, 0.6)');
+        halo.addColorStop(0.09, 'rgba(255, 244, 214, 0.28)');
+        halo.addColorStop(0.3, 'rgba(255, 236, 198, 0.1)');
+        halo.addColorStop(1, 'rgba(255, 232, 190, 0)');
+        context.fillStyle = halo;
+        context.fillRect(0, 0, w, h);
+        const coreRadius = Math.max(16, h * 0.042);
+        const core = context.createRadialGradient(sx, sy, 0, sx, sy, coreRadius);
+        core.addColorStop(0, 'rgba(255, 255, 255, 1)');
+        core.addColorStop(0.55, 'rgba(255, 252, 240, 0.92)');
+        core.addColorStop(1, 'rgba(255, 244, 214, 0)');
+        context.fillStyle = core;
+        context.beginPath();
+        context.arc(sx, sy, coreRadius, 0, Math.PI * 2);
+        context.fill();
       };
 
       /** 单个粒子的最终不透明度：过渡淡入淡出 × 昼夜衰减 × 各 fx 调制（全部按粒子自己的预设）。 */
@@ -1856,14 +1916,8 @@ window.__ModuleLoader__.load({
           context.stroke();
         }
 
-        // 晴天：顶部一层很淡的日晕，给天空一点光源方向。
-        if (kind === 'clear' && env.isDay) {
-          const sun = context.createRadialGradient(w * 0.72, h * 0.08, 0, w * 0.72, h * 0.08, h * 0.5);
-          sun.addColorStop(0, 'rgba(255, 232, 186, 0.14)');
-          sun.addColorStop(1, 'rgba(255, 232, 186, 0)');
-          context.fillStyle = sun;
-          context.fillRect(0, 0, w, h * 0.7);
-        }
+        // 晴天：太阳本体（核心 + 日晕 + 放射光柱），画在粒子之下。
+        drawSun();
 
         context.lineCap = 'round';
         for (const particle of particles) {
@@ -1973,6 +2027,7 @@ window.__ModuleLoader__.load({
         const { width: w, height: h } = env;
         context.clearRect(0, 0, w, h);
         drawBackdrop();
+        drawSun();
         const tint = toRgb(preset.tint[env.isDay ? 0 : 1]);
         drawHorizonHaze();
         drawWet(tint);
@@ -2267,7 +2322,13 @@ window.__ModuleLoader__.load({
     const P_WASH = 22;
     const P_WASH_ALPHA = 25;
     const P_SPEC = 26;
-    const P_LEN = 27;
+    /** 地平线雾带的厚度（elevation 单位）：晴天是一条细线，雾天铺满下半空。 */
+    const P_HAZE_BAND = 27;
+    /** 太阳放射光柱的强度（0 = 不画）：只有晴/风/霾这类看得见太阳的天气才开。 */
+    const P_RAY = 28;
+    /** 地面直射光的额外增益：晴天要让地面「被晒到」，阴雨天保持原样。 */
+    const P_SUN_GAIN = 29;
+    const P_LEN = 30;
 
     /**
      * 天气 × 时段的太阳可见度：晴 1，阴天/雨雾按云层厚度衰减，雷暴最低。
@@ -2332,23 +2393,34 @@ window.__ModuleLoader__.load({
      */
     const GL_KIND_LOOK = {
       clear: {
-        ground: [0.17, 0.16, 0.13],
-        fog: 0.011,
-        cloud: 0.10,
+        ground: [0.24, 0.22, 0.18],
+        // 晴天的空气也要有「厚度」：远场地面靠这条雾收进天空，地平线才不会是一道
+        // 亮蓝对灰褐的硬切边。但密度不能大——0.022 会把整片地面洗成灰白（实测），
+        // 所以主要靠下面那条「强制并入雾色」的距离带在 70m 外收口。
+        fog: 0.012,
+        cloud: 0.05,
         sun: 1.0,
         horizonLift: 0.18,
-        vignette: 0.22,
-        // 晴天的光尘是本场景唯一的粒子内容，尺寸/透明度要补回来，否则等于没有
-        dotScale: 1.6,
-        dotAlpha: 1.25,
+        vignette: 0.1,
+        // 晴天的光尘是本场景唯一的粒子内容，但只能是「阳光里的浮尘」：
+        // 尺寸压到 0.55 倍、不透明度 0.5 倍，大颗粒会变成萤火虫。
+        dotScale: 0.55,
+        dotAlpha: 0.5,
         // 晴天用真正的「白天蓝」：预设里的 backdrop 是为文字可读性调的暖深棕，
-        // 拿来当白昼天空会像沙暴。换成低亮度蓝，保持深色底但仍读得出是晴空。
-        sky: { top: [0.14, 0.20, 0.33], mid: [0.26, 0.33, 0.45], horizon: [0.52, 0.55, 0.58] },
+        // 拿来当白昼天空会像沙暴。天顶保持较深的蓝（文字仍可读），越靠地平线
+        // 越亮越白——真实的晴空就是「上深下浅」，不是一条均匀的灰。
+        sky: { top: [0.075, 0.235, 0.475], mid: [0.19, 0.44, 0.72], horizon: [0.66, 0.78, 0.87] },
+        // 地平线雾带：晴天只有 4° 左右的薄雾，0.30 会让半个天空糊成乳白（原值）。
+        hazeBand: 0.07,
+        // 放射光柱：晴天的辨识点，没有它太阳只是一颗白点（像月亮）。
+        ray: 1.0,
+        // 地面直射增益：晒得到的地面才像正午，否则永远是一条灰褐带。
+        sunGain: 1.7,
       },
-      cloudy: { ground: [0.13, 0.14, 0.16], fog: 0.015, cloud: 0.78, sun: 0.0, horizonLift: 0.13, vignette: 0.24 },
-      drizzle: { ground: [0.09, 0.10, 0.12], fog: 0.017, cloud: 0.64, sun: 0.0, horizonLift: 0.11, vignette: 0.26 },
-      rain: { ground: [0.075, 0.085, 0.105], fog: 0.019, cloud: 0.72, sun: 0.0, horizonLift: 0.10, vignette: 0.27 },
-      heavyRain: { ground: [0.06, 0.07, 0.09], fog: 0.022, cloud: 0.84, sun: 0.0, horizonLift: 0.08, vignette: 0.30 },
+      cloudy: { ground: [0.13, 0.14, 0.16], fog: 0.015, cloud: 0.78, sun: 0.0, horizonLift: 0.13, vignette: 0.24, hazeBand: 0.24 },
+      drizzle: { ground: [0.09, 0.10, 0.12], fog: 0.017, cloud: 0.64, sun: 0.0, horizonLift: 0.11, vignette: 0.26, hazeBand: 0.22 },
+      rain: { ground: [0.075, 0.085, 0.105], fog: 0.019, cloud: 0.72, sun: 0.0, horizonLift: 0.10, vignette: 0.27, hazeBand: 0.2 },
+      heavyRain: { ground: [0.06, 0.07, 0.09], fog: 0.022, cloud: 0.84, sun: 0.0, horizonLift: 0.08, vignette: 0.30, hazeBand: 0.18 },
       thunderstorm: {
         ground: [0.05, 0.055, 0.08],
         fog: 0.024,
@@ -2356,11 +2428,12 @@ window.__ModuleLoader__.load({
         sun: 0.0,
         horizonLift: 0.07,
         vignette: 0.32,
+        hazeBand: 0.18,
         tint: [0.62, 0.66, 0.82],
         lineBoost: 1.5,
       },
-      hail: { ground: [0.24, 0.28, 0.34], fog: 0.021, cloud: 0.74, sun: 0.0, horizonLift: 0.14, vignette: 0.26 },
-      snow: { ground: [0.28, 0.32, 0.39], fog: 0.022, cloud: 0.62, sun: 0.0, horizonLift: 0.16, vignette: 0.24 },
+      hail: { ground: [0.24, 0.28, 0.34], fog: 0.021, cloud: 0.74, sun: 0.0, horizonLift: 0.14, vignette: 0.26, hazeBand: 0.2 },
+      snow: { ground: [0.28, 0.32, 0.39], fog: 0.022, cloud: 0.62, sun: 0.0, horizonLift: 0.16, vignette: 0.24, hazeBand: 0.2 },
       fog: {
         // 雾：冷灰蓝、能见度低（密度最高）、对比度低、无颗粒感——「一片乳白」。
         ground: [0.155, 0.175, 0.205],
@@ -2369,6 +2442,8 @@ window.__ModuleLoader__.load({
         sun: 0.0,
         horizonLift: 0.26,
         vignette: 0.2,
+        // 雾天的雾带本来就该吃掉大半个天空，这是它唯一的辨识点。
+        hazeBand: 0.5,
       },
       haze: {
         // 霾：暖土黄、能见度中等、太阳是个昏黄的盘、**有细颗粒**——「闷但不糊」。
@@ -2378,6 +2453,8 @@ window.__ModuleLoader__.load({
         sun: 0.3,
         horizonLift: 0.16,
         vignette: 0.22,
+        hazeBand: 0.32,
+        ray: 0.15,
       },
       wind: {
         ground: [0.13, 0.14, 0.12],
@@ -2386,6 +2463,8 @@ window.__ModuleLoader__.load({
         sun: 0.15,
         horizonLift: 0.13,
         vignette: 0.24,
+        hazeBand: 0.16,
+        ray: 0.3,
         // 狂风是「横向划过的空气」：深绿灰在深色天空上等于没有，必须提亮 + 加宽 + 拉长
         tint: [0.70, 0.76, 0.70],
         lineBoost: 3.2,
@@ -2398,6 +2477,8 @@ window.__ModuleLoader__.load({
         sun: 0.35,
         horizonLift: 0.22,
         vignette: 0.26,
+        hazeBand: 0.3,
+        ray: 0.2,
         wash: [0.63, 0.50, 0.35],
         // 沙尘粒径在近中景必须读得出来：尺寸 ×2.2、透明度 ×1.5，
         // 并横向拉成 1.9 倍——风携沙的条痕感，而不是一颗颗圆点。
@@ -2477,6 +2558,8 @@ uniform float uDaylight;
 uniform float uCloud;
 uniform float uTime;
 uniform float uFlash;
+uniform float uHazeBand;
+uniform float uRay;
 out vec4 fragColor;
 ${GL_NOISE_GLSL}
 void main() {
@@ -2498,7 +2581,9 @@ void main() {
   col = mix(col, cloudTint, cover * cover * uCloud * above * 0.9);
 
   // 地平线雾化：不画一条硬边，让天空自己溶进雾里，地面才有「无限远」的收口。
-  float haze = 1.0 - smoothstep(-0.02, 0.30, elev);
+  // 雾带厚度按天气给：晴天是一条 4° 的薄线，雾天要吃掉大半个天空。固定 0.30
+  // 会让晴天的下半空糊成一片乳白，看起来和多云/雾霾没有区别。
+  float haze = 1.0 - smoothstep(-0.02, uHazeBand, elev);
   col = mix(col, uFogColor, haze * 0.99);
   // 地平线亮边：一条极窄的高光。8% 的高度差里，全靠这条线告诉眼睛「地在那里」。
   col += vec3(0.028, 0.032, 0.038) * exp(-pow(elev / 0.018, 2.0));
@@ -2509,13 +2594,37 @@ void main() {
 
   if (uSun > 0.001) {
     float sun = max(dot(dir, uSunDir), 0.0);
-    // 三级日晕：核心盘（≈2.5°）、近晕（≈8°）、大气泛光（≈20°）。颜色随色温走，
-    // 晨昏偏橙、正午偏白——同一个 uSunColor 也喂给地面，天地光色不打架。
-    // 三级日晕：核心盘（≈1.3°）、近晕（≈6°）、大气泛光（≈18°）。指数按角度反解
-    // ——pow(cosθ, n)=0.5 时 n≈3000 对应 1.2° 半径；700 会画成 90px 的大光球。
-    col += uSunColor * pow(sun, 2600.0) * uSun * 1.2;
-    col += uSunColor * pow(sun, 120.0) * uSun * 0.16;
-    col += uSunColor * pow(sun, 10.0) * uSun * (0.05 + 0.10 * uWarm);
+    // 四级日晕：核心盘（≈1.2°）、近晕（≈6°）、中层光晕（≈15°）、大气泛光（≈28°）。
+    // 指数按角度反解——pow(cosθ, n)=0.5 时 n≈3000 对应 1.2° 半径；700 会画成
+    // 90px 的大光球。原来只有核心 + 一层弱晕，读起来是「月亮」不是「太阳」：
+    // 烈日的高光必须一路衰减到二十几度，眼睛才认得出「光在空气里散开」。
+    col += uSunColor * pow(sun, 4200.0) * uSun * 2.4;
+    col += uSunColor * pow(sun, 300.0) * uSun * 0.30;
+    col += uSunColor * pow(sun, 48.0) * uSun * 0.18;
+    col += uSunColor * pow(sun, 7.0) * uSun * (0.06 + 0.14 * uWarm);
+
+    // 放射光柱：把太阳投到屏幕空间，按极角调制一圈长短不一的条痕。
+    // 这是「烈日高照」最便宜也最有效的信号——没有它，太阳永远只是一个白点。
+    // 掩膜用 pow(sun, 5)（≈±45°），只在太阳周围可见，远处交还给天空本身。
+    float zc = dot(uSunDir, uCamFwd);
+    if (zc > 0.02 && uRay > 0.001) {
+      vec2 sp = vec2(
+        dot(uSunDir, uCamRight) / (zc * uTanHalf.x),
+        dot(uSunDir, uCamUp) / (zc * uTanHalf.y)
+      );
+      // NDC 是横向拉伸的，先按宽高比还原成正圆再取极角，光柱才不会变成椭圆。
+      vec2 q = (vNdc - sp) * vec2(uTanHalf.x / uTanHalf.y, 1.0);
+      float ang = atan(q.y, q.x);
+      // 三组无理倍频的正弦叠加：单一频率会画成「八角星」，是图标不是阳光。
+      // 每组取幂把波峰收窄，再垫 0.3 的底光——条痕要「亮得不均匀」而不是「一刀
+      // 一刀的尖刺」，否则整颗太阳像卡通里的闪光符号。
+      float a1 = 0.5 + 0.5 * sin(ang * 7.0 + 1.7);
+      float a2 = 0.5 + 0.5 * sin(ang * 13.0 - 0.6);
+      float a3 = 0.5 + 0.5 * sin(ang * 29.0 + 2.4);
+      float streak = 0.3 + 0.7 * (a1 * a1 * 0.5 + a2 * a2 * a2 * 0.35 + a3 * a3 * a3 * a3 * 0.15);
+      float reach = pow(sun, 5.0) * (1.0 - smoothstep(0.0, 1.1, length(q)));
+      col += uSunColor * streak * reach * uSun * uRay * 0.16;
+    }
   }
   // 闪电：整片天空被照亮，云越厚的地方亮得越多（云是发光体，不是玻璃）。
   col += vec3(0.74, 0.79, 1.0) * uFlash * (0.30 + 0.70 * cover);
@@ -2558,6 +2667,8 @@ uniform vec3 uLightDir;
 uniform vec3 uSunColor;
 uniform float uSunI;
 uniform float uAmbient;
+uniform float uSunGain;
+uniform float uWarm;
 uniform float uCloudShadow;
 uniform vec2 uShadowOffset;
 uniform float uFlash;
@@ -2584,8 +2695,9 @@ void main() {
   // 几乎看不出「地面湿了」；pow(wet,0.55) 让 0.05 → 0.2，观感立刻成立。
   float wetness = pow(clamp(wet, 0.0, 1.0), 0.55) * (1.0 - cover);
   // 裸地不是一块纯色：极低频的颗粒让它有「地面」的质感，而不是一条平滑渐变带。
+  // 幅度不能大：地面底色一亮，0.42 的颗粒就会变成一层沙丘纹理（晴天实测）。
   float grain = glFbm(vWorld.xz * 0.85) - 0.5;
-  vec3 col = mix(uBase * (1.0 + grain * 0.42), uBase * vec3(0.70, 0.75, 0.84), wetness * 0.8);
+  vec3 col = mix(uBase * (1.0 + grain * 0.26), uBase * vec3(0.70, 0.75, 0.84), wetness * 0.8);
   // 雪是漫反射体，不是抛光面：加一层高频颗粒，配合伪法线的明暗才有「雪粒」质感。
   float sparkle = glFbm(vWorld.xz * 5.5 + vec2(uTime * 0.02, 0.0)) - 0.5;
   col = mix(col, uSnowColor * (0.94 + sparkle * 0.13), cover);
@@ -2602,11 +2714,13 @@ void main() {
 
   // 天气 × 时段的光照：直射项由太阳强度驱动，环境项负责阴雨天与夜间兜底。
   // 云越厚 → uSunI 越小 → 画面越靠环境光，对比度自然下降，不需要额外分支。
+  // uSunGain 是「晴天专属」的直射增益：没有它，正午的地面永远是一条灰褐带，
+  // 天空再蓝也不像被晒到。
   vec3 lightDir = normalize(uLightDir);
   float diff = max(dot(normal, lightDir), 0.0);
-  float lit = uAmbient * (1.0 - 0.30 * uSunI) + uSunI * diff * 0.80;
+  float lit = uAmbient * (1.0 - 0.30 * uSunI) + uSunI * diff * 0.80 * uSunGain;
   col *= mix(1.0, lit, 0.85);
-  col += uSunColor * uSunI * diff * 0.06;
+  col += uSunColor * uSunI * diff * 0.06 * uSunGain;
 
   vec3 viewDir = normalize(uCamPos - vWorld);
   vec3 halfDir = normalize(lightDir + viewDir);
@@ -2623,12 +2737,22 @@ void main() {
   float dist = length(uCamPos - vWorld);
   float fog = 1.0 - exp(-uFogDensity * dist);
   // 远场强制并入雾色：地面几何的远端边界正好等于地平线色，接缝不可见。
-  fog = max(fog, smoothstep(50.0, 96.0, dist));
-  col = mix(col, uFogColor, clamp(fog, 0.0, 1.0));
+  // 收口距离从 50–96m 前移到 34–72m：原来的窗口把「地面到天空」的过渡全挤在
+  // 地平线附近十几行像素里，远看就是一条硬边；提前收口才有真正的空气透视。
+  fog = max(fog, smoothstep(34.0, 72.0, dist));
+  vec3 toFrag = normalize(vWorld - uCamPos);
+  // 雾色必须和天空用同一条公式：天空那边是「雾色 + 晨昏暖带 + 日晕」，地面这边
+  // 原来只混了裸雾色，于是日落时天空是暖灰、地面是一条冷蓝，接缝读起来像一片
+  // 湖（实测 197,195,192 → 165,195,217）。这里把后两项补回来。
+  vec3 fogColor = uFogColor;
+  float warmBand = (1.0 - smoothstep(0.0, 0.46, toFrag.y)) * uWarm;
+  fogColor = mix(fogColor, fogColor * vec3(1.30, 0.97, 0.74) + vec3(0.05, 0.012, 0.0), warmBand * 0.8);
+  float sunGlow = pow(max(dot(toFrag, lightDir), 0.0), 8.0);
+  fogColor += uSunColor * sunGlow * uSunI * (0.06 + 0.14 * uWarm);
+  col = mix(col, fogColor, clamp(fog, 0.0, 1.0));
   // 与天空共用同一条地平线亮边：远场地面被雾饱和成纯雾色后，天空那边还挂着
   // 这条高光的尾巴，两者会差出 2–3/255 的一条细线（QA 实测）。这里按同一个
   // elev 公式补回去，接缝两端逐像素同色。* fog 保证只作用在远场。
-  vec3 toFrag = normalize(vWorld - uCamPos);
   col += vec3(0.028, 0.032, 0.038) * exp(-pow(toFrag.y / 0.018, 2.0)) * fog;
   // 与天空同款 interleaved gradient noise 抖动：地面渐变（雾/雪面）同样会出条带。
   float dither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
@@ -3748,6 +3872,10 @@ void main() {
         out[P_WASH + 2] = wash[2];
         out[P_WASH_ALPHA] = look.wash ? (day ? 0.06 : 0.04) : 0;
         out[P_SPEC] = 1;
+        // 三个新增槽位都有兜底值：没写 hazeBand/ray/sunGain 的 kind 保持旧观感。
+        out[P_HAZE_BAND] = look.hazeBand ?? 0.24;
+        out[P_RAY] = look.ray ?? 0;
+        out[P_SUN_GAIN] = look.sunGain ?? 1;
         return out;
       };
 
@@ -4183,6 +4311,8 @@ void main() {
         gl.uniform1f(u.uWarm, sf.warmth);
         gl.uniform1f(u.uDaylight, solar?.daylight ?? 1);
         gl.uniform1f(u.uCloud, live[P_CLOUD]);
+        gl.uniform1f(u.uHazeBand, live[P_HAZE_BAND]);
+        gl.uniform1f(u.uRay, live[P_RAY]);
         gl.uniform1f(u.uTime, seconds);
         gl.uniform1f(u.uFlash, flash * 0.85);
         gl.bindVertexArray(emptyVao);
@@ -4212,6 +4342,8 @@ void main() {
         gl.uniform3f(u.uSunColor, sf.color[0], sf.color[1], sf.color[2]);
         gl.uniform1f(u.uSunI, sf.sunI);
         gl.uniform1f(u.uAmbient, sf.ambient);
+        gl.uniform1f(u.uSunGain, live[P_SUN_GAIN]);
+        gl.uniform1f(u.uWarm, sf.warmth);
         gl.uniform1f(u.uCloudShadow, sf.cloud);
         gl.uniform1f(u.uFlash, flash);
         // 云影随时间漂移：叠上太阳方位的地面投影，太阳移动时影子跟着走。
@@ -4614,7 +4746,10 @@ void main() {
         // 「左东右西」的读法成立，弧线也在画面内。
         const sx = (s.azimuth * 2 - 1) * 0.42;
         // 高度角同样压缩：正午 31.5° 仰角在 22.5° 半视场之上，会跑出画面顶部。
-        const sy = 0.16 + s.elevation * 0.36;
+        // 但零点必须落在「地平线」而不是 +9°：原来的 0.16 偏移让太阳永远悬在
+        // 半空，日出日落时看着像月亮停在山上。现在 elevation=0 时略低于地平线，
+        // 太阳是真的从地面升起、落进地面。
+        const sy = -0.005 + s.elevation * 0.52;
         const sz = -0.85;
         const len = Math.hypot(sx, sy, sz) || 1;
         const dir = [sx / len, sy / len, sz / len];
