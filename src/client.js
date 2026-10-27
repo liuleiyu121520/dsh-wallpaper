@@ -2351,6 +2351,30 @@ window.__ModuleLoader__.load({
     };
 
     /**
+     * 太阳**本体**（圆盘 + 紧贴的光晕）的可见度，与上面的「照度」分开建模。
+     *
+     * 两者不是一回事：阴天仍然有大量漫射光（照度 0.26），但太阳盘早被云吃掉了。
+     * 只用一个系数时，雨天的 `0.08 × 2.4` 加法项在暗天空里是一颗清晰的白点——
+     * 雨丝加上那颗白点就是「太阳雨」（用户实测反馈）。云层消光是乘性的，所以
+     * 这里比照度衰减得狠得多：雨族 0.01 量级，几乎不可见；霾里仍是一个淡盘。
+     */
+    const GL_SUN_DISK = {
+      clear: 1.0,
+      cloudy: 0.02,
+      drizzle: 0.02,
+      rain: 0.012,
+      heavyRain: 0.008,
+      thunderstorm: 0.006,
+      wind: 0.12,
+      snow: 0.02,
+      fog: 0.008,
+      // 霾里仍要看得到一个「昏黄的盘」，但它是淡的：0.35 会烧成一颗白热点。
+      haze: 0.12,
+      hail: 0.015,
+      dust: 0.06,
+    };
+
+    /**
      * 天气 × 时段的阴影参数：alpha 是投影浓度，soft 是边缘扩散（越大越糊），
      * cloud 是地面云影强度。晴天硬朗，阴雨天几乎没有可辨影子。
      */
@@ -2454,7 +2478,8 @@ window.__ModuleLoader__.load({
         horizonLift: 0.16,
         vignette: 0.22,
         hazeBand: 0.32,
-        ray: 0.15,
+        // 霾里不画光柱：太阳盘只有几十像素，一道光柱会变成一根「毛刺」。
+        ray: 0,
       },
       wind: {
         ground: [0.13, 0.14, 0.12],
@@ -2553,6 +2578,7 @@ uniform vec3 uFogColor;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 uniform float uSun;
+uniform float uSunDisk;
 uniform float uWarm;
 uniform float uDaylight;
 uniform float uCloud;
@@ -2598,8 +2624,10 @@ void main() {
     // 指数按角度反解——pow(cosθ, n)=0.5 时 n≈3000 对应 1.2° 半径；700 会画成
     // 90px 的大光球。原来只有核心 + 一层弱晕，读起来是「月亮」不是「太阳」：
     // 烈日的高光必须一路衰减到二十几度，眼睛才认得出「光在空气里散开」。
-    col += uSunColor * pow(sun, 4200.0) * uSun * 2.4;
-    col += uSunColor * pow(sun, 300.0) * uSun * 0.30;
+    // 核心盘与近晕走 uSunDisk（被云吃掉就真的没有），中层光晕与大气泛光走 uSun
+    // （漫射光还在，只是太阳不在了）——这正是「阴天」与「晴天」的区别所在。
+    col += uSunColor * pow(sun, 4200.0) * uSunDisk * 2.4;
+    col += uSunColor * pow(sun, 300.0) * uSunDisk * 0.30;
     col += uSunColor * pow(sun, 48.0) * uSun * 0.18;
     col += uSunColor * pow(sun, 7.0) * uSun * (0.06 + 0.14 * uWarm);
 
@@ -2623,7 +2651,7 @@ void main() {
       float a3 = 0.5 + 0.5 * sin(ang * 29.0 + 2.4);
       float streak = 0.3 + 0.7 * (a1 * a1 * 0.5 + a2 * a2 * a2 * 0.35 + a3 * a3 * a3 * a3 * 0.15);
       float reach = pow(sun, 5.0) * (1.0 - smoothstep(0.0, 1.1, length(q)));
-      col += uSunColor * streak * reach * uSun * uRay * 0.16;
+      col += uSunColor * streak * reach * uSunDisk * uRay * 0.16;
     }
   }
   // 闪电：整片天空被照亮，云越厚的地方亮得越多（云是发光体，不是玻璃）。
@@ -4307,6 +4335,7 @@ void main() {
         const sf = solarFrame();
         gl.uniform3f(u.uSunDir, sf.dir[0], sf.dir[1], sf.dir[2]);
         gl.uniform1f(u.uSun, sf.sunI);
+        gl.uniform1f(u.uSunDisk, sf.diskI);
         gl.uniform3f(u.uSunColor, sf.color[0], sf.color[1], sf.color[2]);
         gl.uniform1f(u.uWarm, sf.warmth);
         gl.uniform1f(u.uDaylight, solar?.daylight ?? 1);
@@ -4741,6 +4770,9 @@ void main() {
         const s = solar ?? { elevation: 0.55, daylight: 1, warmth: 0.1, azimuth: 0.55, phase: 'noon' };
         const visibility = GL_SUN_VISIBILITY[kind] ?? 0.3;
         const sunI = visibility * s.daylight;
+        // 太阳盘：云层消光比照度衰减得狠得多，且日落时只按日照时长线性收一点
+        // （傍晚的太阳仍是亮盘，不该被当成「阴天的太阳」一起抹掉）。
+        const diskI = (GL_SUN_DISK[kind] ?? 0.05) * (0.3 + 0.7 * s.daylight);
         // 方位压缩到 ±0.42：不压缩时日出/日落的太阳落在水平 33° 半视场之外，
         // 画面上永远看不到太阳。压缩后太阳从左边框升起、右边框落下，
         // 「左东右西」的读法成立，弧线也在画面内。
@@ -4762,6 +4794,7 @@ void main() {
           dir,
           color,
           sunI,
+          diskI,
           ambient,
           warmth: w,
           shadowAlpha: shadow.alpha * s.daylight * (0.35 + 0.65 * visibility),
@@ -5160,9 +5193,30 @@ void main() {
      * 配图经 Host 白名单路由加载；加载失败（404 或解码失败）时移除 <img>，露出
      * 容器自带的 CSS 渐变兜底——assets 落盘前也不是破图。
      */
-    function ModeCard({ mode, title, desc, active, onSelect, t, timeText }) {
+    function ModeCard({ mode, title, desc, active, onSelect, t, timeText, metaText }) {
       const [broken, setBroken] = React.useState(false);
       const [hovered, setHovered] = React.useState(false);
+
+      /** 角标文案可能来自 locale 缺键/载荷缺字段，统一按「有没有可用字符串」判断。 */
+      const hasText = (value) => typeof value === 'string' && value !== '';
+
+      /** 左上角角标的胶囊样式：两行（时间 / 城市·天气）共用同一套。 */
+      const badge = {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        maxWidth: '100%',
+        padding: '3px 8px',
+        borderRadius: '999px',
+        background: 'rgba(8, 10, 14, 0.55)',
+        color: '#fff',
+        fontSize: '11px',
+        lineHeight: '16px',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        backdropFilter: 'blur(2px)',
+      };
 
       const label = (key, fallback) => {
         try {
@@ -5267,8 +5321,9 @@ void main() {
             React.createElement('div', { style: { fontSize: '14px', fontWeight: 600, lineHeight: '20px' } }, title),
             React.createElement('div', { style: { fontSize: '12px', opacity: '.78', lineHeight: '17px', marginTop: '2px' } }, desc),
           ),
-          // 更新时间只在卡片选中时出现：未选中的卡保持干净，选中即见「数据新不新」。
-          active === true && typeof timeText === 'string' && timeText !== ''
+          // 左上角角标：第一行「更新于」，第二行「城市 · 天气 温度」。
+          // 两行都只在卡片选中时出现——未选中的卡保持干净。
+          active === true && (hasText(timeText) || hasText(metaText))
             ? React.createElement(
                 'div',
                 {
@@ -5276,29 +5331,31 @@ void main() {
                     position: 'absolute',
                     top: '8px',
                     left: '8px',
+                    right: '8px',
                     display: 'flex',
-                    alignItems: 'center',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
                     gap: '4px',
-                    padding: '3px 8px',
-                    borderRadius: '999px',
-                    background: 'rgba(8, 10, 14, 0.55)',
-                    color: '#fff',
-                    fontSize: '11px',
-                    lineHeight: '16px',
-                    backdropFilter: 'blur(2px)',
                   },
                 },
-                React.createElement(
-                  'span',
-                  { 'aria-hidden': 'true', style: { display: 'inline-flex', opacity: '.85' } },
-                  React.createElement(
-                    'svg',
-                    { width: 11, height: 11, viewBox: '0 0 12 12', fill: 'none' },
-                    React.createElement('circle', { cx: 6, cy: 6, r: 4.6, stroke: '#fff', strokeWidth: 1.3 }),
-                    React.createElement('path', { d: 'M6 3.4V6l1.8 1.2', stroke: '#fff', strokeWidth: 1.3, strokeLinecap: 'round' }),
-                  ),
-                ),
-                timeText,
+                hasText(timeText)
+                  ? React.createElement(
+                      'div',
+                      { style: badge },
+                      React.createElement(
+                        'span',
+                        { 'aria-hidden': 'true', style: { display: 'inline-flex', opacity: '.85' } },
+                        React.createElement(
+                          'svg',
+                          { width: 11, height: 11, viewBox: '0 0 12 12', fill: 'none' },
+                          React.createElement('circle', { cx: 6, cy: 6, r: 4.6, stroke: '#fff', strokeWidth: 1.3 }),
+                          React.createElement('path', { d: 'M6 3.4V6l1.8 1.2', stroke: '#fff', strokeWidth: 1.3, strokeLinecap: 'round' }),
+                        ),
+                      ),
+                      timeText,
+                    )
+                  : null,
+                hasText(metaText) ? React.createElement('div', { style: badge }, metaText) : null,
               )
             : null,
           active === true
@@ -5573,7 +5630,8 @@ void main() {
       );
       const mode = React.useSyncExternalStore(modeStore.subscribe, modeStore.get, modeStore.get);
       // 卡片上的「更新于」：天气卡取天气载荷时间，系统卡取最近换帧时刻。
-      const weatherAt = React.useSyncExternalStore(weatherStore.subscribe, weatherStore.get, weatherStore.get)?.updatedAt ?? null;
+      const weather = React.useSyncExternalStore(weatherStore.subscribe, weatherStore.get, weatherStore.get);
+      const weatherAt = weather?.updatedAt ?? null;
       const frameAt = React.useSyncExternalStore(frameTimeStore.subscribe, frameTimeStore.get, frameTimeStore.get);
       const status = snapshot.status;
       const valuesRef = React.useRef(merged({}));
@@ -5593,6 +5651,29 @@ void main() {
         if (!Number.isFinite(ms)) return null;
         return label('weather.updatedAt', '更新于 {time}').replace('{time}', new Date(ms).toLocaleTimeString());
       };
+
+      /**
+       * 天气卡的实况角标：`城市 · 天气 温度`（例：`北京 · 晴 24°`）。
+       *
+       * 定位失败时 Host 的 city 是 null（走固定坐标/默认坐标），此时退化成
+       * `晴 24°`；温度缺失时只剩 `北京 · 晴`。三者都没有就返回 null，不占位置。
+       */
+      const weatherMeta = (() => {
+        if (weather === null || weather === undefined) return null;
+        // 一次都没成功取到过数据时，kind 是占位的 cloudy——显示「多云」会误导，
+        // 不如不显示（此时卡片上只有「更新于」缺失，错误行另有提示）。
+        if (weather.updatedAt === null || weather.updatedAt === undefined) return null;
+        const parts = [];
+        if (typeof weather.city === 'string' && weather.city.trim() !== '') parts.push(weather.city.trim());
+        const kindLabel = label(`weather.kind.${weather.kind}`, KIND_LABELS[weather.kind] ?? weather.kind);
+        if (typeof kindLabel === 'string' && kindLabel !== '') parts.push(kindLabel);
+        const head = parts.join(' · ');
+        const temperature = typeof weather.temperature === 'number' && Number.isFinite(weather.temperature)
+          ? `${Math.round(weather.temperature)}°`
+          : '';
+        const text = [head, temperature].filter((part) => part !== '').join(' ');
+        return text === '' ? null : text;
+      })();
 
       React.useEffect(() => {
         void updateStore.refresh(false);
@@ -5785,6 +5866,7 @@ void main() {
               active: mode === 'weather',
               onSelect: setMode,
               timeText: timeTextFor('weather'),
+              metaText: weatherMeta,
             }),
           ),
           // 效果预览只在「天气壁纸」下出现：系统壁纸没有可预览的天气形态。
