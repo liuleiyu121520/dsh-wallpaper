@@ -1,6 +1,6 @@
 {
   "name": "dsh-wallpaper",
-  "version": "0.4.6",
+  "version": "0.4.7",
   "type": "module",
   "description": "把当前桌面壁纸作为 DeepSeek Harness 界面的实时背景（支持 macOS / Windows / Linux）",
   "keywords": [
@@ -10,6 +10,10 @@
     "background"
   ],
   "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test --test-force-exit \"tests/**/*.test.js\""
+  },
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",

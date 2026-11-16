@@ -138,6 +138,18 @@ for (const entry of registered) {
   if (typeof entry.component === 'function') probe(`${entry.slot}/${entry.id}`, entry.component);
 }
 
+// dsh 0.2.2 的 route admission 让 webServer.register 默认 auth: 'required'：漏写的
+// 路由在到达插件自己的 guard 之前就被宿主 503 拒掉。钉住每处注册都必须显式声明
+// anonymous，新路由漏写时在这里失败，而不是在用户机器上。
+const hostSource = readFileSync(new URL('../src/index.js', import.meta.url), 'utf8');
+const registrations = hostSource.split('ctx.webServer.register(').slice(1);
+if (registrations.length === 0) failures.push('src/index.js: no webServer.register call found');
+registrations.forEach((chunk, index) => {
+  if (!chunk.includes("auth: 'anonymous'")) {
+    failures.push(`src/index.js: webServer.register #${index + 1} missing auth: 'anonymous'`);
+  }
+});
+
 if (failures.length > 0) {
   console.error('check-client: client render smoke test failed');
   for (const line of failures) console.error('  - ' + line);
